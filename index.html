@@ -341,6 +341,18 @@ main.glt{animation:glt .28s steps(3)}
  <label style="grid-column:1/-1">Inimigo com imagem própria<input id="ffile" type="file" accept="image/*"></label></div>
  <div class="tools" id="mapbar" style="margin-top:8px"><button data-f="z">+ Zumbi</button><button data-f="c">+ Cultista</button><button data-f="x">Limpar inimigos</button><button data-f="r">Reposicionar agente</button></div>
  <p class="mut">Cada quadrado vale 1,5 m. A imagem do mapa fica só neste navegador.</p></section>
+<section class="card wide" id="roomcard" data-p="mesa" style="margin:14px 0;border:1px solid var(--ac)">
+ <h2>Conexão da mesa · multiplayer</h2>
+ <p style="color:var(--mut);font-size:13px">Crie uma sala como Mestre ou entre com o código e PIN compartilhados pelo Mestre. A ficha do agente fica separada do estado do mapa.</p>
+ <div class="grid2">
+  <label>Código da mesa<input id="roomcode" autocomplete="off" maxlength="32" placeholder="Ex.: ORDEM-7F3A9C"></label>
+  <label>PIN da mesa<input id="roompin" type="password" autocomplete="new-password" minlength="8" placeholder="Mínimo de 8 caracteres"></label>
+ </div>
+ <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+  <button id="roomcreate">Criar sala (Mestre)</button><button id="roomjoin">Entrar na sala</button><button id="roomleave" style="display:none">Desconectar</button>
+ </div>
+ <p id="roomstatus" role="status" aria-live="polite" style="font-size:12px;color:var(--mut);margin:10px 0 0">Offline · sua ficha continua salva neste navegador.</p>
+</section>
 <section class="card" id="mapcard" data-p="token">
 <div id="mtb"><button id="bdr" aria-expanded="false">Token e mapa</button><button data-tool="rul">Régua</button><button data-tool="rev">Revelar</button><button data-tool="cov">Cobrir</button><button id="bfog">Névoa: desligada</button><button id="bpk">Espiar</button><button id="bbr">Pincel 1</button><button id="bfree">Movimento livre</button><button data-z="-1" aria-label="Diminuir zoom">−</button><button data-z="1" aria-label="Aumentar zoom">+</button></div>
 <div id="mstage"><div id="mapbox"><div id="map"></div></div><button id="dtab">Token ▸</button>
@@ -1222,6 +1234,118 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   $('mapbox').addEventListener('dblclick',e=>{if(typeof TOOL!='undefined'&&TOOL||e.target.closest('.tok'))return;const r=$('map').getBoundingClientRect();try{room.emit('ping',{x:(e.clientX-r.left)/r.width*100,y:(e.clientY-r.top)/r.height*100})}catch(x){}});
   room.on('ping',ev=>{const d=ev.data;if(ev.isMe||!d||typeof d.x!='number'||typeof d.y!='number')return;const m=$('map'),p=document.createElement('div');p.className='ping';p.style.left=d.x+'%';p.style.top=d.y+'%';m.append(p);setTimeout(()=>p.remove(),1300)});
  }
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* Integração Supabase: salas protegidas por PIN, estado compartilhado e fichas individuais. */
+(()=>{
+ const URL='https://yvbsoyhklqpwiikadiky.supabase.co';
+ const KEY='sb_publishable_fn_WQDH2a0NjC0mPPZmFDA_8wQ_9WUq';
+ const $=id=>document.getElementById(id);
+ const client=window.supabase.createClient(URL,KEY);
+ const status=$('roomstatus'),codeInput=$('roomcode'),pinInput=$('roompin');
+ const store=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+ const read=k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}};
+ let room=null,role='player',jid=read('op-room-jid'),lastShared='',lastPlayer='',lastRemote='',timer=null,busy=false;
+ if(!jid){jid=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));store('op-room-jid',jid)}
+ const say=(msg,bad=false)=>{status.textContent=msg;status.style.color=bad?'#e28b8b':'var(--mut)'};
+ const rpc=async(name,args)=>{const {data,error}=await client.rpc(name,args);if(error)throw error;return data};
+ const shared=()=>({
+  foes:S.foes||[],maps:(S.maps||[]).map(m=>{const x={...m};delete x.img;delete x.data;return x}),
+  cur:S.mp&&S.mp.cur||null,cols:S.mp&&S.mp.cols||24,grid:S.mp&&S.mp.grid||1,
+  ini:S.ini||[],dia:S.dia||[],scene:S.scene||null,
+  fg:S.fg?{on:S.fg.on,rad:S.fg.rad,auto:S.fg.auto}:null
+ });
+ const player=()=>({
+  nome:S.nome||'',origem:S.origem||'',classe:S.classe,nex:S.nex,elem:S.elem,
+  trilha:S.trilha||'',at:S.at,pv:S.pv,san:S.san,pe:S.pe,tr:S.tr||{},
+  atk:S.atk||[],hab:S.hab||[],inv:S.inv||[],rit:S.rit||[],notes:S.notes||'',
+  bio:S.bio||{},cond:S.cond||{},pp:S.pp||0,jog:S.jog||'',idade:S.idade||'',
+  defEq:S.defEq||0,prot:S.prot||0,res:S.res||'',
+  tok:{n:S.tok&&S.tok.n||'',img:S.tok&&S.tok.img&&S.tok.img.length<150000?S.tok.img:null,sz:S.tok&&S.tok.sz||1},
+  pos:S.pos||{x:2,y:4}
+ });
+ const applyShared=v=>{
+  if(!v)return;
+  if(v.foes)S.foes=v.foes;if(v.maps)S.maps=v.maps;
+  S.mp=S.mp||{};if(v.cur!==undefined)S.mp.cur=v.cur;
+  if(v.cols)S.mp.cols=v.cols;if(v.grid!==undefined)S.mp.grid=v.grid;
+  if(v.ini)S.ini=v.ini;if(v.dia)S.dia=v.dia;
+  if(v.scene!==undefined)S.scene=v.scene;
+  if(v.fg&&S.fg)Object.assign(S.fg,v.fg);
+  try{map()}catch(e){}try{iui()}catch(e){}try{dui()}catch(e){}
+ };
+ const applyPlayers=list=>{
+  const m=$('map');if(!m)return;
+  m.querySelectorAll('.tok.peer').forEach(x=>x.remove());
+  (list||[]).forEach(row=>{
+   if(row.jid===jid)return;
+   const p=row.dados||{},pos=p.pos||{x:2,y:4};
+   const color=EL[p.elem]||'#888',sz=p.tok&&p.tok.sz||1;
+   const d=document.createElement('div');d.className='tok peer';
+   d.title=p.nome||'Agente';d.style.cssText='left:'+(Number(pos.x)||0)/GC*100+'%;top:'+(Number(pos.y)||0)/GR*100+'%;width:'+sz/GC*100+'%;--c:'+color+';pointer-events:none';
+   const im=document.createElement('img');im.alt='';im.draggable=false;im.src=p.tok&&p.tok.img||art(color,GL.a(color));d.append(im);
+   const hp=document.createElement('i'),bar=document.createElement('b');bar.style.width='100%';hp.append(bar);d.append(hp);m.append(d);
+  });
+ };
+ async function refresh(){
+  if(!room||busy)return;busy=true;
+  try{
+   const result=await rpc('ler_mesa',{p_codigo:room.code,p_pin:room.pin});
+   if(result&&result.estado){
+    const j=JSON.stringify(result.estado);
+    if(j!==lastRemote){lastRemote=j;applyShared(result.estado);save()}
+   }
+   applyPlayers(result&&result.jogadores||[]);
+  }catch(e){say('Falha ao sincronizar: '+(e.message||'erro'),true)}
+  finally{busy=false}
+ }
+ async function connect(code,pin,as){
+  code=String(code||'').trim().toLowerCase();pin=String(pin||'');
+  if(!/^[a-z0-9-]{10,32}$/.test(code)){say('Código inválido. Use 10 a 32 caracteres: letras, números ou hífen.',true);return}
+  if(pin.length<8){say('O PIN precisa ter pelo menos 8 caracteres.',true);return}
+  say('Validando acesso à sala…');
+  try{
+   const result=await rpc('ler_mesa',{p_codigo:code,p_pin:pin});
+   room={code,pin};role=as;
+   store('op-room-code',code);store('op-room-pin',pin);store('op-room-role',role);
+   codeInput.value=code;pinInput.value=pin;
+   if(result&&result.estado&&role==='player')applyShared(result.estado);
+   $('roomcreate').disabled=true;$('roomjoin').disabled=true;$('roomleave').style.display='';
+   say('Conectado à sala '+code.toUpperCase()+' · '+(role==='gm'?'Mestre':'Agente')+'. Sincronização ativa.');
+   await refresh();
+   clearInterval(timer);timer=setInterval(sync,1800);setInterval(refresh,2800);
+  }catch(e){say('Não foi possível entrar: '+(e.message||'código ou PIN incorreto'),true)}
+ }
+ async function sync(){
+  if(!room||busy)return;
+  try{
+   if(role==='gm'){
+    const s=JSON.stringify(shared());
+    if(s!==lastShared){await rpc('salvar_estado',{p_codigo:room.code,p_pin:room.pin,p_estado:JSON.parse(s)});lastShared=s}
+   }
+   const p=JSON.stringify(player());
+   if(p!==lastPlayer){await rpc('salvar_jogador',{p_codigo:room.code,p_pin:room.pin,p_jid:jid,p_dados:JSON.parse(p)});lastPlayer=p}
+  }catch(e){say('Erro ao salvar na mesa: '+(e.message||'falha'),true)}
+ }
+ $('roomcreate').onclick=async()=>{
+  const code=String(codeInput.value||('ordem-'+Math.random().toString(36).slice(2,9))).toLowerCase();
+  const pin=pinInput.value||Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b%32]).join('');
+  codeInput.value=code;pinInput.value=pin;
+  if(!/^[a-z0-9-]{10,32}$/.test(code)){say('O código deve ter entre 10 e 32 caracteres.',true);return}
+  if(pin.length<8){say('Defina um PIN com pelo menos 8 caracteres.',true);return}
+  say('Criando sala…');
+  try{await rpc('criar_mesa',{p_codigo:code,p_pin:pin});lastShared='';lastPlayer='';await connect(code,pin,'gm');}
+  catch(e){say('Não foi possível criar: '+(e.message||'erro'),true)}
+ };
+ $('roomjoin').onclick=()=>connect(codeInput.value,pinInput.value,'player');
+ $('roomleave').onclick=()=>{
+  room=null;clearInterval(timer);$('roomcreate').disabled=false;$('roomjoin').disabled=false;$('roomleave').style.display='none';
+  $('map').querySelectorAll('.tok.peer').forEach(x=>x.remove());say('Desconectado · dados locais preservados.');
+ };
+ const oldCode=read('op-room-code'),oldPin=read('op-room-pin'),oldRole=read('op-room-role');
+ if(oldCode&&oldPin){codeInput.value=oldCode;pinInput.value=oldPin;connect(oldCode,oldPin,oldRole==='gm'?'gm':'player')}
 })();
 </script>
 </body>
