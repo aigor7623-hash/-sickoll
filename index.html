@@ -1247,7 +1247,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  const status=$('roomstatus'),codeInput=$('roomcode'),pinInput=$('roompin');
  const store=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
  const read=k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}};
- let room=null,role='player',jid=read('op-room-jid'),lastShared='',lastPlayer='',lastRemote='',timer=null,busy=false;
+ let room=null,role='player',jid=read('op-room-jid'),lastShared='',lastPlayer='',lastRemote='',timer=null,refreshTimer=null,busy=false;
  if(!jid){jid=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));store('op-room-jid',jid)}
  const say=(msg,bad=false)=>{status.textContent=msg;status.style.color=bad?'#e28b8b':'var(--mut)'};
  const rpc=async(name,args)=>{const {data,error}=await client.rpc(name,args);if(error)throw error;return data};
@@ -1315,11 +1315,11 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
    $('roomcreate').disabled=true;$('roomjoin').disabled=true;$('roomleave').style.display='';
    say('Conectado à sala '+code.toUpperCase()+' · '+(role==='gm'?'Mestre':'Agente')+'. Sincronização ativa.');
    await refresh();
-   clearInterval(timer);timer=setInterval(sync,1800);setInterval(refresh,2800);
+   clearInterval(timer);clearInterval(refreshTimer);timer=setInterval(sync,1800);refreshTimer=setInterval(refresh,2800);
   }catch(e){say('Não foi possível entrar: '+(e.message||'código ou PIN incorreto'),true)}
  }
  async function sync(){
-  if(!room||busy)return;
+  if(!room||busy)return;busy=true;
   try{
    if(role==='gm'){
     const s=JSON.stringify(shared());
@@ -1328,6 +1328,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
    const p=JSON.stringify(player());
    if(p!==lastPlayer){await rpc('salvar_jogador',{p_codigo:room.code,p_pin:room.pin,p_jid:jid,p_dados:JSON.parse(p)});lastPlayer=p}
   }catch(e){say('Erro ao salvar na mesa: '+(e.message||'falha'),true)}
+  finally{busy=false}
  }
  $('roomcreate').onclick=async()=>{
   const code=String(codeInput.value||('ordem-'+Math.random().toString(36).slice(2,9))).toLowerCase();
@@ -1341,7 +1342,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  };
  $('roomjoin').onclick=()=>connect(codeInput.value,pinInput.value,'player');
  $('roomleave').onclick=()=>{
-  room=null;clearInterval(timer);$('roomcreate').disabled=false;$('roomjoin').disabled=false;$('roomleave').style.display='none';
+  room=null;clearInterval(timer);clearInterval(refreshTimer);$('roomcreate').disabled=false;$('roomjoin').disabled=false;$('roomleave').style.display='none';
   $('map').querySelectorAll('.tok.peer').forEach(x=>x.remove());say('Desconectado · dados locais preservados.');
  };
  const oldCode=read('op-room-code'),oldPin=read('op-room-pin'),oldRole=read('op-room-role');
