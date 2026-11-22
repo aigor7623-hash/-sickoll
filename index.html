@@ -343,7 +343,18 @@ main.glt{animation:glt .28s steps(3)}
  <p class="mut">Cada quadrado vale 1,5 m. A imagem do mapa fica só neste navegador.</p></section>
 <section class="card wide" id="roomcard" data-p="mesa" style="margin:14px 0;border:1px solid var(--ac)">
  <h2>Conexão da mesa · multiplayer</h2>
- <p style="color:var(--mut);font-size:13px">Crie uma sala como Mestre ou entre com o código e PIN compartilhados pelo Mestre. A ficha do agente fica separada do estado do mapa.</p>
+ <p style="color:var(--mut);font-size:13px">Entre com sua conta para o sistema reconhecer se você é Mestre ou Jogador. O Mestre cria a sala; os jogadores entram com o código e PIN.</p>
+ <div style="border:1px solid var(--line);padding:12px;border-radius:5px;margin:10px 0 14px">
+  <h3 style="margin:0 0 8px;font-family:'Special Elite',monospace">Conta Supabase</h3>
+  <div class="grid2">
+   <label>E-mail<input id="authEmail" type="email" autocomplete="username" placeholder="seu@email.com"></label>
+   <label>Senha<input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="Sua senha"></label>
+  </div>
+  <div class="row" style="gap:8px;margin-top:8px">
+   <button id="authLogin">Entrar</button><button id="authRegister">Criar conta</button><button id="authLogout" style="display:none">Sair</button>
+  </div>
+  <p id="authstatus" role="status" aria-live="polite" style="font-size:12px;color:var(--mut);margin:8px 0 0">Verificando sessão...</p>
+ </div>
  <div class="grid2">
   <label>Código da mesa<input id="roomcode" autocomplete="off" maxlength="32" placeholder="Ex.: ORDEM-7F3A9C"></label>
   <label>PIN da mesa<input id="roompin" type="password" autocomplete="new-password" minlength="8" placeholder="Mínimo de 8 caracteres"></label>
@@ -1245,9 +1256,55 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  const $=id=>document.getElementById(id);
  const client=window.supabase.createClient(URL,KEY);
  const status=$('roomstatus'),codeInput=$('roomcode'),pinInput=$('roompin');
+ const authEmail=$('authEmail'),authPassword=$('authPassword'),authStatus=$('authstatus');
+ const authLogin=$('authLogin'),authRegister=$('authRegister'),authLogout=$('authLogout');
  const store=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
  const read=k=>{try{return localStorage.getItem(k)||''}catch(e){return ''}};
+ let authUser=null,isMaster=false,authReady=false;
  let room=null,role='player',jid=read('op-room-jid'),lastShared='',lastPlayer='',lastRemote='',timer=null,refreshTimer=null,busy=false;
+ const authSay=(msg,bad=false)=>{authStatus.textContent=msg;authStatus.style.color=bad?'#e28b8b':'var(--mut)'};
+ function renderAuth(){
+  authLogout.style.display=authUser?'':'none';
+  authLogin.disabled=authRegister.disabled=!authReady;
+  $('roomcreate').disabled=!authReady||!authUser||!isMaster;
+  $('roomjoin').disabled=!authReady||!authUser;
+  authSay(!authReady?'Verificando sessão...':!authUser?'Entre ou crie uma conta para continuar.':(isMaster?'Conectado como Mestre · acesso de Mestre liberado.':'Conectado como Jogador · acesso de jogador.'));
+ }
+ async function loadAuthUser(user){
+  authUser=user||null;isMaster=false;
+  if(authUser){
+   const {data,error}=await client.from('user_roles').select('role').eq('user_id',authUser.id).maybeSingle();
+   if(error){authSay('Login ativo, mas não foi possível consultar seu cargo: '+error.message,true)}
+   else isMaster=!!(data&&data.role==='master');
+  }
+  authReady=true;renderAuth();
+ }
+ authLogin.onclick=async()=>{
+  const email=authEmail.value.trim(),password=authPassword.value;
+  if(!email||!password){authSay('Informe e-mail e senha.',true);return}
+  authSay('Entrando...');
+  const {data,error}=await client.auth.signInWithPassword({email,password});
+  if(error){authSay(error.message,true);return}
+  await loadAuthUser(data.user);
+ };
+ authRegister.onclick=async()=>{
+  const email=authEmail.value.trim(),password=authPassword.value;
+  if(!email||password.length<8){authSay('Informe um e-mail válido e uma senha com pelo menos 8 caracteres.',true);return}
+  authSay('Criando conta...');
+  const {data,error}=await client.auth.signUp({email,password});
+  if(error){authSay(error.message,true);return}
+  if(data.session&&data.user){await loadAuthUser(data.user)}
+  else authSay('Conta criada. Confirme o e-mail pelo link enviado e depois entre.');
+ };
+ authLogout.onclick=async()=>{
+  await client.auth.signOut();room=null;clearInterval(timer);clearInterval(refreshTimer);
+  $('roomcreate').disabled=true;$('roomjoin').disabled=true;$('roomleave').style.display='none';
+  await loadAuthUser(null);say('Sessão encerrada.');
+ };
+ client.auth.onAuthStateChange((_event,session)=>{
+  setTimeout(()=>loadAuthUser(session&&session.user?session.user:null),0);
+ });
+ (async()=>{const {data,error}=await client.auth.getUser();if(error&&error.name!=='AuthSessionMissingError')authSay(error.message,true);await loadAuthUser(data&&data.user?data.user:null)})();
  if(!jid){jid=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));store('op-room-jid',jid)}
  const say=(msg,bad=false)=>{status.textContent=msg;status.style.color=bad?'#e28b8b':'var(--mut)'};
  const rpc=async(name,args)=>{const {data,error}=await client.rpc(name,args);if(error)throw error;return data};
@@ -1302,6 +1359,8 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   finally{busy=false}
  }
  async function connect(code,pin,as){
+  if(!authReady||!authUser){say('Entre na sua conta antes de acessar a mesa.',true);return}
+  if(as==='gm'&&!isMaster){say('Apenas a conta cadastrada como Mestre pode criar ou administrar a sala.',true);return}
   code=String(code||'').trim().toLowerCase();pin=String(pin||'');
   if(!/^[a-z0-9-]{10,32}$/.test(code)){say('Código inválido. Use 10 a 32 caracteres: letras, números ou hífen.',true);return}
   if(pin.length<8){say('O PIN precisa ter pelo menos 8 caracteres.',true);return}
@@ -1338,6 +1397,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   finally{busy=false}
  }
  $('roomcreate').onclick=async()=>{
+  if(!authUser||!isMaster){say('Entre com a conta cadastrada como Mestre para criar uma sala.',true);return}
   const code=String(codeInput.value||('ordem-'+Math.random().toString(36).slice(2,9))).toLowerCase();
   const pin=pinInput.value||Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b%32]).join('');
   codeInput.value=code;pinInput.value=pin;
@@ -1347,13 +1407,17 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   try{await rpc('criar_mesa',{p_codigo:code,p_pin:pin});lastShared='';lastPlayer='';await connect(code,pin,'gm');}
   catch(e){say('Não foi possível criar: '+(e.message||'erro'),true)}
  };
- $('roomjoin').onclick=()=>connect(codeInput.value,pinInput.value,'player');
+ $('roomjoin').onclick=()=>connect(codeInput.value,pinInput.value,isMaster?'gm':'player');
  $('roomleave').onclick=()=>{
   room=null;clearInterval(timer);clearInterval(refreshTimer);$('roomcreate').disabled=false;$('roomjoin').disabled=false;$('roomleave').style.display='none';
   $('map').querySelectorAll('.tok.peer').forEach(x=>x.remove());say('Desconectado · dados locais preservados.');
  };
- const oldCode=read('op-room-code'),oldPin=read('op-room-pin'),oldRole=read('op-room-role');
- if(oldCode&&oldPin){codeInput.value=oldCode;pinInput.value=oldPin;connect(oldCode,oldPin,oldRole==='gm'?'gm':'player')}
+ const oldCode=read('op-room-code'),oldPin=read('op-room-pin');
+ if(oldCode&&oldPin){
+  codeInput.value=oldCode;pinInput.value=oldPin;
+  const wait=()=>{if(!authReady)return setTimeout(wait,250);if(authUser)connect(oldCode,oldPin,isMaster?'gm':'player')};
+  wait();
+ }
 })();
 </script>
 </body>
