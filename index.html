@@ -259,6 +259,14 @@ main.glt{animation:glt .28s steps(3)}
 .tag{padding:1px 8px;border-radius:10px;font-size:12px;background:var(--ac);color:#fff}.tag.t1{background:#a02020}.tag.t2{background:#2a6f4a}.tag.t3{background:#7a5a1a}
 :root[data-el="medo"] #il li.cur,:root[data-el="medo"] .tag.t0{color:#14121a}
 @media(prefers-reduced-motion:reduce){body.san-lo main,body.san-cr main,body.pv-lo #vg{animation:none}}
+body:not(.is-master) #mtb,body:not(.is-master) #dtab,body:not(.is-master) #drawer,body:not(.is-master) #mapbar{display:none!important}
+body:not(.is-master) #map{cursor:default!important}
+#gmPanel details summary{list-style:disclosure-closed}
+#gmPanel details[open] summary{margin-bottom:10px}
+#gmPanel .kv{grid-template-columns:repeat(auto-fit,minmax(90px,1fr))}
+#gmPanel p{font-size:13px;margin:7px 0}
+#gmPanel ol{font-size:13px}
+#nav [data-pg="mestre"][hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -572,7 +580,7 @@ function prog(){
  $('dt').textContent=10+S.at.AGI+(+S.defEq||0);$('pr').textContent=+S.prot||0;
  $('ritdt').textContent='· DT '+(10+l+S.at.PRE)+' · limite '+l+' PE por turno';
 }
-const PG=[['inicio','Início'],['mesa','Mesa / Login'],['ficha','Ficha'],['pericias','Perícias'],['combate','Combate'],['habs','Poderes'],['inv','Inventário'],['dados','Dados 3D'],['token','Token'],['bio','Dossiê']];
+const PG=[['inicio','Início'],['mesa','Mesa / Login'],['mestre','Painel do Mestre'],['ficha','Ficha']],['pericias','Perícias'],['combate','Combate'],['habs','Poderes'],['inv','Inventário'],['dados','Dados 3D'],['token','Token'],['bio','Dossiê']];
 $('nav').innerHTML='<b class="brand typ">◬ Ordem Paranormal</b>'+PG.map(([k,n])=>`<button data-pg="${k}">${n}</button>`).join('');
 function go(k){scrollTo(0,0);
  if(!PG.some(p=>p[0]==k))k='inicio';
@@ -635,12 +643,14 @@ const TKP=document.createElement('input');TKP.type='file';TKP.accept='image/png'
 TKP.onchange=e=>{const f=e.target.files[0];e.target.value='';if(f&&selId)pngTok(f,du=>{if(selId=='p')S.tok.img=du;else fo(selId).img=du;tk();save()})};
 $('tkh').value=S.tok.ih||1.9;$('tkh').oninput=e=>{S.tok.ih=+e.target.value;map();save()};
 $('mapbar').onclick=e=>{
+ if(window.__opCanControl!==true)return;
  const k=e.target.dataset.f;if(!k)return;
  if(k=='x')S.foes=[];else if(k=='r'){S.pos.x=2;S.pos.y=4}
  else if(S.foes.length<12)S.foes.push({n:k=='z'?'Zumbi':'Cultista',k,x:8+S.foes.length%6,y:1+S.foes.length%8});
  map();save();
 };
 $('map').addEventListener('pointerdown',e=>{
+ if(window.__opCanControl!==true)return;
  const t=e.target.closest('.tok');if(!t)return;
  const id=t.dataset.id,o=id=='p'?S.pos:S.foes[+id.slice(1)],sx=o.x,sy=o.y,r=$('map').getBoundingClientRect(),sz=id=='p'?(+S.tok.sz||1):1;
  t.classList.add('d');t.setPointerCapture(e.pointerId);
@@ -789,7 +799,7 @@ sec('wide','<h2>As três classes</h2><p class="mut" style="margin:0 0 10px">Toqu
 sec('wide','<h2>O sistema em resumo</h2><div class="g3">'+[['Atributos','Cinco valores: Agilidade, Força, Intelecto, Presença e Vigor. Definem seus dados nos testes.'],['Perícias','28 perícias. Treino soma +5, veterano +10 e expert +15 ao resultado.'],['NEX','Nível de Exposição, de 5% a 99%. Quanto maior, mais poderoso o agente.'],['Sanidade','Horrores do Outro Lado abalam a mente. Com a Sanidade em 0, o agente enlouquece.'],['Rituais','Poderes paranormais em quatro círculos. Cada ritual consome PE.'],['Condições','Estados como Abalado, Sangrando ou Paralisado alteram o que o agente pode fazer.']].map(([a,b])=>`<div class="gd el t3" style="--c:var(--ac)"><b>${a}</b>${b}</div>`).join('')+'</div>');
 sec('wide','<h2>Patentes da Ordem</h2><table class="pt"><tr><th>Patente</th><th>PP mínimo</th><th>Crédito</th><th>Itens I / II / III / IV</th></tr>'+PAT.map(p=>`<tr><td>${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td><td>${p[3].join(' / ')}</td></tr>`).join('')+'</table>');
 sec('wide t3','<h2>Sua campanha</h2><p class="mut" style="margin:0 0 10px">A história ainda não foi escrita. Use este espaço para combinar o tom e os mistérios com o seu mestre.</p><div class="grid2"><label>Nome da campanha<input data-b="camp.nome" placeholder="A definir"></label><label>Mestre<input data-b="camp.mestre"></label><label>Local principal<input data-b="camp.local"></label><label>Próxima sessão<input data-b="camp.sessao"></label><label style="grid-column:1/-1">Premissa<textarea data-b="camp.premissa" placeholder="Um caso, um local misterioso, um objetivo..."></textarea></label></div>');
-const GD={mesa:'Login, acesso de Mestre e Jogadores',ficha:'Atributos, vida, sanidade e esforço',pericias:'As 28 perícias com treino',combate:'Defesa, ataques e condições',habs:'Habilidades e rituais',inv:'Itens, categorias e carga',dados:'Dados d6, d8 e d20 em 3D',token:'Token e mapa tático',bio:'História e anotações'};
+const GD={mesa:'Login, acesso de Mestre e Jogadores',mestre:'Fichas dos agentes, rolagens e controle da mesa',ficha:'Atributos, vida, sanidade e esforço',pericias:'As 28 perícias com treino',combate:'Defesa, ataques e condições',habs:'Habilidades e rituais',inv:'Itens, categorias e carga',dados:'Dados d6, d8 e d20 em 3D',token:'Token e mapa tático',bio:'História e anotações'};
 sec('wide','<h2>Guia do site</h2><div class="g3">'+PG.slice(1).map(([k,n])=>`<button class="gd t3" data-go="${k}"><b>${n}</b><small>${GD[k]}</small></button>`).join('')+'</div>');
 document.addEventListener('click',e=>{
  const el=e.target.closest('[data-el]');if(el&&el.dataset.el){S.elem=el.dataset.el;$('elem').value=S.elem;all()}
@@ -797,8 +807,12 @@ document.addEventListener('click',e=>{
  const cl=e.target.closest('[data-cl]');if(cl){S.classe=cl.dataset.cl;$('classe').value=S.classe;all()}
 });
 
+/* ---- Painel privado do Mestre ---- */
+const GMPanel=document.createElement('section');GMPanel.className='card wide';GMPanel.id='gmPanel';GMPanel.dataset.p='mestre';
+GMPanel.innerHTML='<div class="tools" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Central de comando</h2><span id="gmStatus" class="mut">Entre como Mestre e conecte-se à sala.</span></div><h2 style="margin-top:18px">Fichas dos agentes</h2><div id="gmPlayers" class="g3"><p class="mut">Aguardando jogadores…</p></div><h2 style="margin-top:18px">Rolagens recentes</h2><ol id="gmRolls" style="padding-left:22px;max-height:360px;overflow:auto"><li class="mut">Nenhuma rolagem registrada.</li></ol>';
+MAIN.append(GMPanel);
 /* ---- Menu lateral, cabeçalho de página ---- */
-const ICO={inicio:'⌂',mesa:'♙',ficha:'◬',pericias:'✦',combate:'⚔',habs:'☽',inv:'▦',dados:'⬢',token:'◉',bio:'✎'};
+const ICO={inicio:'⌂',mesa:'♙',mestre:'♜',ficha:'◬',pericias:'✦',combate:'⚔',habs:'☽',inv:'▦',dados:'⬢',token:'◉',bio:'✎'};
 $('nav').innerHTML='<b class="brand typ">◬ Ordem Paranormal</b><div id="me"></div>'+PG.map(([k,n])=>`<button data-pg="${k}"><span>${ICO[k]}</span>${n}</button>`).join('');
 const PH=document.createElement('header');PH.id='ph';MAIN.prepend(PH);
 function go(k){
@@ -932,6 +946,7 @@ $('ffile').onchange=e=>{
  rd.readAsDataURL(f);e.target.value='';
 };
 $('mapbar').onclick=e=>{
+ if(window.__opCanControl!==true)return;
  const k=e.target.dataset.f;if(!k)return;
  if(k=='x')S.foes=[];else if(k=='r'){S.pos.x=2;S.pos.y=3}
  else if(S.foes.length<24){const nm=$('fnome').value.trim(),pv=+$('fpv').value||20,n=S.foes.length;S.foes.push({n:nm||(k=='z'?'Zumbi':'Cultista'),k,x:(n*2)%(GC-1),y:1+n%6,pv,mx:pv})}
@@ -994,9 +1009,9 @@ document.querySelectorAll('#mtb [data-tool]').forEach(b=>b.onclick=()=>{const t=
 $('bfog').onclick=()=>{S.fg.on=S.fg.on?0:1;vision();fogDraw();tbBtn();save()};
 $('bpk').onclick=()=>{S.fg.peek=S.fg.peek?0:1;fogDraw();tbBtn()};
 $('bbr').onclick=()=>{BR=BR%3+1;tbBtn()};
-$('mtb').addEventListener('click',e=>{const z=e.target.dataset.z;if(z){S.mp.zoom=cl(+(S.mp.zoom+ +z*.25).toFixed(2),1,3);map();save()}});
+$('mtb').addEventListener('click',e=>{if(window.__opCanControl!==true)return;const z=e.target.dataset.z;if(z){S.mp.zoom=cl(+(S.mp.zoom+ +z*.25).toFixed(2),1,3);map();save()}});
 $('mapbox').addEventListener('pointerdown',e=>{
- if(!TOOL)return;e.stopPropagation();e.preventDefault();
+ if(window.__opCanControl!==true||!TOOL)return;e.stopPropagation();e.preventDefault();
  const box=$('mapbox'),r=$('map').getBoundingClientRect(),P=ev=>[(ev.clientX-r.left)/r.width*GC,(ev.clientY-r.top)/r.height*GR];
  box.setPointerCapture(e.pointerId);
  const paint=p=>{const cx=Math.floor(p[0]),cy=Math.floor(p[1]),k=BR-1;for(let y=cy-k;y<=cy+k;y++)for(let x=cx-k;x<=cx+k;x++)setCell(x,y,TOOL=='rev')};
@@ -1251,6 +1266,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
 <script>
 /* Integração Supabase: salas protegidas por PIN, estado compartilhado e fichas individuais. */
 (()=>{
+ window.__opCanControl=false;document.body.classList.remove('is-master');
  const URL='https://yvbsoyhklqpwiikadiky.supabase.co';
  const KEY='sb_publishable_fn_WQDH2a0NjC0mPPZmFDA_8wQ_9WUq';
  const $=id=>document.getElementById(id);
@@ -1264,6 +1280,8 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  let room=null,role='player',jid=read('op-room-jid'),lastShared='',lastPlayer='',lastRemote='',timer=null,refreshTimer=null,busy=false;
  const authSay=(msg,bad=false)=>{authStatus.textContent=msg;authStatus.style.color=bad?'#e28b8b':'var(--mut)'};
  function renderAuth(){
+  window.__opCanControl=!!(authUser&&isMaster);document.body.classList.toggle('is-master',window.__opCanControl);
+  const masterTab=$('nav').querySelector('[data-pg="mestre"]');if(masterTab)masterTab.hidden=!isMaster;
   authLogout.style.display=authUser?'':'none';
   authLogin.disabled=authRegister.disabled=!authReady;
   $('roomcreate').disabled=!authReady||!authUser||!isMaster;
@@ -1346,6 +1364,26 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
    const hp=document.createElement('i'),bar=document.createElement('b');bar.style.width='100%';hp.append(bar);d.append(hp);m.append(d);
   });
  };
+ function renderMasterPanel(result){
+  if(!isMaster)return;
+  const players=result&&result.jogadores||[];
+  $('gmStatus').textContent=room?'Sala '+room.code.toUpperCase()+' · '+players.length+' ficha(s)':'Conecte-se à sua sala.';
+  $('gmPlayers').innerHTML=players.length?players.map(row=>{
+   const p=row.dados||{},at=p.at||{},tr=p.tr||{};
+   const list=arr=>Array.isArray(arr)?arr.map(x=>typeof x==='string'?x:(x.n||x.nome||x.name||'')).filter(Boolean).join(', '):'';
+   const stat=v=>v&&typeof v==='object'?(v.atual??v.cur??v.value??'—'):v??'—';
+   return '<details class="card" style="padding:12px"><summary style="cursor:pointer"><b>'+esc(p.nome||'Agente sem nome')+'</b><span class="mut"> · '+esc(p.classe||'Classe não definida')+' · NEX '+esc(p.nex??'—')+'%</span></summary><div class="kv"><div><span>PV</span><b>'+esc(stat(p.pv))+'</b></div><div><span>Sanidade</span><b>'+esc(stat(p.san))+'</b></div><div><span>PE</span><b>'+esc(stat(p.pe))+'</b></div><div><span>Origem</span><b style="font-size:14px">'+esc(p.origem||'—')+'</b></div></div><p><b>Atributos:</b> '+esc(Object.entries(at).map(([k,v])=>k+': '+v).join(' · ')||'—')+'</p><p><b>Trilha:</b> '+esc(p.trilha||'—')+' · <b>Elemento:</b> '+esc(p.elem||'—')+'</p><p><b>Perícias treinadas:</b> '+esc(Object.entries(tr).filter(([k,v])=>+v>0).map(([k,v])=>k+' +'+(+v*5)).join(', ')||'—')+'</p><p><b>Ataques:</b> '+esc(list(p.atk)||'—')+'</p><p><b>Habilidades:</b> '+esc(list(p.hab)||'—')+'</p><p><b>Inventário:</b> '+esc(list(p.inv)||'—')+'</p><p><b>Anotações:</b> '+esc(p.notes||'—')+'</p></details>';
+  }).join(''):'<p class="mut">Nenhum jogador enviou a ficha ainda. Peça para os jogadores entrarem na sala.</p>';
+  const rolls=(result&&result.eventos||[]).filter(e=>e.tipo==='roll');
+  $('gmRolls').innerHTML=rolls.length?rolls.map(e=>'<li style="margin:0 0 8px"><b>'+esc(e.dados&&e.dados.nome||'Agente')+'</b>: '+esc(e.dados&&e.dados.det||'Rolagem')+' <span class="mut">= '+esc(e.dados&&e.dados.t||'—')+' · '+(e.criado?new Date(e.criado).toLocaleString('pt-BR'):'')+'</span></li>').join(''):'<li class="mut">Nenhuma rolagem registrada nesta sessão.</li>';
+ }
+ let rollHooked=false;
+ function hookRollEvents(){
+  if(rollHooked||typeof logRoll!=='function')return;
+  const original=logRoll;
+  logRoll=function(det,t){original(det,t);if(!room)return;rpc('enviar_evento',{p_codigo:room.code,p_pin:room.pin,p_tipo:'roll',p_dados:{nome:S.nome||'Agente',det:String(det).slice(0,200),t:String(t).slice(0,20)}}).catch(()=>{})};
+  rollHooked=true;
+ }
  async function refresh(){
   if(!room||busy)return;busy=true;
   try{
@@ -1354,7 +1392,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
     const j=JSON.stringify(result.estado);
     if(j!==lastRemote){lastRemote=j;applyShared(result.estado);save()}
    }
-   applyPlayers(result&&result.jogadores||[]);
+   applyPlayers(result&&result.jogadores||[]);renderMasterPanel(result);
   }catch(e){say('Falha ao sincronizar: '+(e.message||'erro'),true)}
   finally{busy=false}
  }
@@ -1367,7 +1405,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   say('Validando acesso à sala…');
   try{
    const result=await rpc('ler_mesa',{p_codigo:code,p_pin:pin});
-   room={code,pin};role=as;
+   room={code,pin};role=as;hookRollEvents();
    store('op-room-code',code);store('op-room-pin',pin);store('op-room-role',role);
    codeInput.value=code;pinInput.value=pin;
    if(result&&result.estado&&role==='player')applyShared(result.estado);
