@@ -823,7 +823,7 @@ const ICO={inicio:'⌂',mesa:'♙',mestre:'♜',ficha:'◬',pericias:'✦',comba
 $('nav').innerHTML='<b class="brand typ">◬ Ordem Paranormal</b><div id="me"></div>'+PG.map(([k,n])=>`<button data-pg="${k}"><span>${ICO[k]}</span>${n}</button>`).join('');
 const PH=document.createElement('header');PH.id='ph';MAIN.prepend(PH);
 function go(k){
- scrollTo(0,0);if(!PG.some(p=>p[0]==k))k='inicio';
+ scrollTo(0,0);if(!PG.some(p=>p[0]==k))k='inicio';if(k==='mestre'&&window.__opCanControl!==true)k='mesa';
  document.querySelectorAll('main section').forEach(s=>s.classList.toggle('on',(s.dataset.p||'').split(' ').includes(k)));
  document.querySelectorAll('#nav [data-pg]').forEach(b=>b.toggleAttribute('aria-current',b.dataset.pg==k));
  PH.style.display=k=='inicio'?'none':'';PH.innerHTML='<h1 class="typ">'+PG.find(p=>p[0]==k)[1]+'</h1><p>'+(GD[k]||'')+'</p>';
