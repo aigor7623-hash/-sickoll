@@ -1387,7 +1387,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  async function refresh(){
   if(!room||busy)return;busy=true;
   try{
-   const result=await rpc('ler_mesa',{p_codigo:room.code,p_pin:room.pin});
+   const result=await rpc('ler_mesa',{p_codigo:room.code,p_pin:room.pin,p_jid:jid});
    if(result&&result.estado){
     const j=JSON.stringify(result.estado);
     if(j!==lastRemote){lastRemote=j;applyShared(result.estado);save()}
@@ -1404,7 +1404,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   if(pin.length<8){say('O PIN precisa ter pelo menos 8 caracteres.',true);return}
   say('Validando acesso à sala…');
   try{
-   const result=await rpc('ler_mesa',{p_codigo:code,p_pin:pin});
+   const result=await rpc('ler_mesa',{p_codigo:code,p_pin:pin,p_jid:jid});
    room={code,pin};role=as;hookRollEvents();
    store('op-room-code',code);store('op-room-pin',pin);store('op-room-role',role);
    codeInput.value=code;pinInput.value=pin;
