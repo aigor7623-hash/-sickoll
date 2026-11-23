@@ -1291,6 +1291,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  async function loadAuthUser(user){
   authUser=user||null;isMaster=false;
   if(authUser){
+   jid=authUser.id;store('op-room-jid',jid);
    const {data,error}=await client.from('user_roles').select('role').eq('user_id',authUser.id).maybeSingle();
    if(error){authSay('Login ativo, mas não foi possível consultar seu cargo: '+error.message,true)}
    else isMaster=!!(data&&data.role==='master');
