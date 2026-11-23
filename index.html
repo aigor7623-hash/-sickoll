@@ -608,7 +608,7 @@ $('fr').onclick=()=>{
  const m=/([0-9]*)d([0-9]+) *([+-] *[0-9]+)?/i.exec($('fx').value);if(!m)return;
  const q=Math.min(+m[1]||1,50),f=+m[2],b=m[3]?+m[3].replace(/ /g,''):0,r=Array.from({length:q},()=>1+Math.floor(Math.random()*f)),s=r.reduce((x,y)=>x+y,0)+b;
  vx=.4;vy=.5;$('res').innerHTML=`<strong>${s}</strong><small>${esc($('fx').value)}: [${r.join(', ')}]</small>`;
- const li=document.createElement('li');li.textContent=$('fx').value+': ['+r.join(', ')+'] = '+s;$('log').prepend(li);
+ logRoll($('fx').value+': ['+r.join(', ')+']',s);
 };
 /* ---- Token e mapa ---- */
 function art(c,g){
@@ -1168,7 +1168,7 @@ $('dt').onkeydown=e=>{if(e.key=='Enter')$('da').click()};
 $('dl').onclick=e=>{const b=e.target.closest('[data-dd]');if(b){S.dia.splice(+b.dataset.dd,1);dui();save()}};
 dui();
 /* ping no mapa (duplo clique) */
-$('mapbox').addEventListener('dblclick',e=>{if(TOOL||e.target.closest('.tok'))return;const m=$('map'),r=m.getBoundingClientRect(),d=document.createElement('div');d.className='ping';d.style.left=(e.clientX-r.left)/r.width*100+'%';d.style.top=(e.clientY-r.top)/r.height*100+'%';m.append(d);setTimeout(()=>d.remove(),1300);if(S.fx){const c=ac();tone(880,c.currentTime,.5,'sine',.15)}});
+$('mapbox').addEventListener('dblclick',e=>{if(window.__opCanControl!==true||TOOL||e.target.closest('.tok'))return;const m=$('map'),r=m.getBoundingClientRect(),d=document.createElement('div');d.className='ping';d.style.left=(e.clientX-r.left)/r.width*100+'%';d.style.top=(e.clientY-r.top)/r.height*100+'%';m.append(d);setTimeout(()=>d.remove(),1300);if(S.fx){const c=ac();tone(880,c.currentTime,.5,'sine',.15)}});
 /* transição com glitch */
 const go1=go;go=function(k){go1(k);MAIN.classList.remove('glt');void MAIN.offsetWidth;MAIN.classList.add('glt');setTimeout(()=>MAIN.classList.remove('glt'),300)};
 /* abertura */
@@ -1257,7 +1257,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   logRoll=function(det,t){l0(det,t);if(!echo)try{room.emit('roll',{n:nome(),det:String(det).slice(0,200),t:String(t).slice(0,20)})}catch(e){}};
   const cl2=x=>String(x==null?'':x).replace(/[<>&"]/g,'');
   room.on('roll',m=>{const d=m.data;if(m.isMe||!d||!d.det)return;echo=1;try{l0(cl2(d.n||'Agente')+': '+cl2(d.det),cl2(d.t))}finally{echo=0}});
-  $('mapbox').addEventListener('dblclick',e=>{if(typeof TOOL!='undefined'&&TOOL||e.target.closest('.tok'))return;const r=$('map').getBoundingClientRect();try{room.emit('ping',{x:(e.clientX-r.left)/r.width*100,y:(e.clientY-r.top)/r.height*100})}catch(x){}});
+  $('mapbox').addEventListener('dblclick',e=>{if(window.__opCanControl!==true||typeof TOOL!='undefined'&&TOOL||e.target.closest('.tok'))return;const r=$('map').getBoundingClientRect();try{room.emit('ping',{x:(e.clientX-r.left)/r.width*100,y:(e.clientY-r.top)/r.height*100})}catch(x){}});
   room.on('ping',ev=>{const d=ev.data;if(ev.isMe||!d||typeof d.x!='number'||typeof d.y!='number')return;const m=$('map'),p=document.createElement('div');p.className='ping';p.style.left=d.x+'%';p.style.top=d.y+'%';m.append(p);setTimeout(()=>p.remove(),1300)});
  }
 })();
