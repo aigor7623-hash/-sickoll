@@ -572,7 +572,7 @@ function prog(){
  $('dt').textContent=10+S.at.AGI+(+S.defEq||0);$('pr').textContent=+S.prot||0;
  $('ritdt').textContent='· DT '+(10+l+S.at.PRE)+' · limite '+l+' PE por turno';
 }
-const PG=[['inicio','Início'],['ficha','Ficha'],['pericias','Perícias'],['combate','Combate'],['habs','Poderes'],['inv','Inventário'],['dados','Dados 3D'],['token','Token'],['bio','Dossiê']];
+const PG=[['inicio','Início'],['mesa','Mesa / Login'],['ficha','Ficha'],['pericias','Perícias'],['combate','Combate'],['habs','Poderes'],['inv','Inventário'],['dados','Dados 3D'],['token','Token'],['bio','Dossiê']];
 $('nav').innerHTML='<b class="brand typ">◬ Ordem Paranormal</b>'+PG.map(([k,n])=>`<button data-pg="${k}">${n}</button>`).join('');
 function go(k){scrollTo(0,0);
  if(!PG.some(p=>p[0]==k))k='inicio';
@@ -789,7 +789,7 @@ sec('wide','<h2>As três classes</h2><p class="mut" style="margin:0 0 10px">Toqu
 sec('wide','<h2>O sistema em resumo</h2><div class="g3">'+[['Atributos','Cinco valores: Agilidade, Força, Intelecto, Presença e Vigor. Definem seus dados nos testes.'],['Perícias','28 perícias. Treino soma +5, veterano +10 e expert +15 ao resultado.'],['NEX','Nível de Exposição, de 5% a 99%. Quanto maior, mais poderoso o agente.'],['Sanidade','Horrores do Outro Lado abalam a mente. Com a Sanidade em 0, o agente enlouquece.'],['Rituais','Poderes paranormais em quatro círculos. Cada ritual consome PE.'],['Condições','Estados como Abalado, Sangrando ou Paralisado alteram o que o agente pode fazer.']].map(([a,b])=>`<div class="gd el t3" style="--c:var(--ac)"><b>${a}</b>${b}</div>`).join('')+'</div>');
 sec('wide','<h2>Patentes da Ordem</h2><table class="pt"><tr><th>Patente</th><th>PP mínimo</th><th>Crédito</th><th>Itens I / II / III / IV</th></tr>'+PAT.map(p=>`<tr><td>${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td><td>${p[3].join(' / ')}</td></tr>`).join('')+'</table>');
 sec('wide t3','<h2>Sua campanha</h2><p class="mut" style="margin:0 0 10px">A história ainda não foi escrita. Use este espaço para combinar o tom e os mistérios com o seu mestre.</p><div class="grid2"><label>Nome da campanha<input data-b="camp.nome" placeholder="A definir"></label><label>Mestre<input data-b="camp.mestre"></label><label>Local principal<input data-b="camp.local"></label><label>Próxima sessão<input data-b="camp.sessao"></label><label style="grid-column:1/-1">Premissa<textarea data-b="camp.premissa" placeholder="Um caso, um local misterioso, um objetivo..."></textarea></label></div>');
-const GD={ficha:'Atributos, vida, sanidade e esforço',pericias:'As 28 perícias com treino',combate:'Defesa, ataques e condições',habs:'Habilidades e rituais',inv:'Itens, categorias e carga',dados:'Dados d6, d8 e d20 em 3D',token:'Token e mapa tático',bio:'História e anotações'};
+const GD={mesa:'Login, acesso de Mestre e Jogadores',ficha:'Atributos, vida, sanidade e esforço',pericias:'As 28 perícias com treino',combate:'Defesa, ataques e condições',habs:'Habilidades e rituais',inv:'Itens, categorias e carga',dados:'Dados d6, d8 e d20 em 3D',token:'Token e mapa tático',bio:'História e anotações'};
 sec('wide','<h2>Guia do site</h2><div class="g3">'+PG.slice(1).map(([k,n])=>`<button class="gd t3" data-go="${k}"><b>${n}</b><small>${GD[k]}</small></button>`).join('')+'</div>');
 document.addEventListener('click',e=>{
  const el=e.target.closest('[data-el]');if(el&&el.dataset.el){S.elem=el.dataset.el;$('elem').value=S.elem;all()}
@@ -798,7 +798,7 @@ document.addEventListener('click',e=>{
 });
 
 /* ---- Menu lateral, cabeçalho de página ---- */
-const ICO={inicio:'⌂',ficha:'◬',pericias:'✦',combate:'⚔',habs:'☽',inv:'▦',dados:'⬢',token:'◉',bio:'✎'};
+const ICO={inicio:'⌂',mesa:'♙',ficha:'◬',pericias:'✦',combate:'⚔',habs:'☽',inv:'▦',dados:'⬢',token:'◉',bio:'✎'};
 $('nav').innerHTML='<b class="brand typ">◬ Ordem Paranormal</b><div id="me"></div>'+PG.map(([k,n])=>`<button data-pg="${k}"><span>${ICO[k]}</span>${n}</button>`).join('');
 const PH=document.createElement('header');PH.id='ph';MAIN.prepend(PH);
 function go(k){
@@ -1163,7 +1163,7 @@ const go1=go;go=function(k){go1(k);MAIN.classList.remove('glt');void MAIN.offset
  let i=0,j=0;const iv=setInterval(()=>{if(i>=L.length){clearInterval(iv);return}j++;pre.textContent=L.slice(0,i).join('\n')+(i?'\n':'')+L[i].slice(0,j);if(j>=L[i].length){i++;j=0}},26);
  const out=()=>{clearInterval(iv);b.classList.add('x');setTimeout(()=>b.remove(),700)};b.onclick=out;addEventListener('keydown',out,{once:true});
 })();
-init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(location.hash.slice(1));
+init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(location.hash.slice(1)||'mesa');
 </script>
 <script>
 /* Mesa compartilhada: acende sozinha quando db/room/user/assets respondem. Sem eles a ficha continua local. */
