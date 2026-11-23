@@ -580,7 +580,7 @@ function prog(){
  $('dt').textContent=10+S.at.AGI+(+S.defEq||0);$('pr').textContent=+S.prot||0;
  $('ritdt').textContent='· DT '+(10+l+S.at.PRE)+' · limite '+l+' PE por turno';
 }
-const PG=[['inicio','Início'],['mesa','Mesa / Login'],['mestre','Painel do Mestre'],['ficha','Ficha']],['pericias','Perícias'],['combate','Combate'],['habs','Poderes'],['inv','Inventário'],['dados','Dados 3D'],['token','Token'],['bio','Dossiê']];
+const PG=[['inicio','Início'],['mesa','Mesa / Login'],['mestre','Painel do Mestre'],['ficha','Ficha'],['pericias','Perícias'],['combate','Combate'],['habs','Poderes'],['inv','Inventário'],['dados','Dados 3D'],['token','Token'],['bio','Dossiê']];
 $('nav').innerHTML='<b class="brand typ">◬ Ordem Paranormal</b>'+PG.map(([k,n])=>`<button data-pg="${k}">${n}</button>`).join('');
 function go(k){scrollTo(0,0);
  if(!PG.some(p=>p[0]==k))k='inicio';
