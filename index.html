@@ -261,6 +261,8 @@ main.glt{animation:glt .28s steps(3)}
 @media(prefers-reduced-motion:reduce){body.san-lo main,body.san-cr main,body.pv-lo #vg{animation:none}}
 body:not(.is-master) #mtb,body:not(.is-master) #dtab,body:not(.is-master) #drawer,body:not(.is-master) #mapbar{display:none!important}
 body:not(.is-master) #map{cursor:default!important}
+body:not(.is-master) #mapcard #sel button{display:none!important}
+#gmTokenManager{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:8px}#gmTokenManager .tools{display:flex;flex-wrap:wrap;gap:10px}#gmTokenManager label{flex:1;min-width:130px}#gmTokenList>div{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}#gmTokenList b{min-width:130px;flex:1}
 body:not(.is-master) #gmPanel{display:none!important}
 #gmEffects{display:flex;flex-wrap:wrap;gap:14px;margin:14px 0}#gmEffects>.dsw{flex:1;min-width:210px;max-width:480px}#gmEffects .dsel{flex-wrap:wrap}
 #gmPanel details summary{list-style:disclosure-closed}
@@ -814,7 +816,7 @@ document.addEventListener('click',e=>{
 
 /* ---- Painel privado do Mestre ---- */
 const GMPanel=document.createElement('section');GMPanel.className='card wide';GMPanel.id='gmPanel';GMPanel.dataset.p='mestre';
-GMPanel.innerHTML='<div class="tools" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Central de comando</h2><span id="gmStatus" class="mut">Entre como Mestre e conecte-se à sala.</span></div><h2>Clima e efeitos da sessão</h2><div id="gmEffects"></div><h2 style="margin-top:18px">Fichas dos agentes</h2><div id="gmPlayers" class="g3"><p class="mut">Aguardando jogadores…</p></div><h2 style="margin-top:18px">Rolagens recentes</h2><ol id="gmRolls" style="padding-left:22px;max-height:360px;overflow:auto"><li class="mut">Nenhuma rolagem registrada.</li></ol>';
+GMPanel.innerHTML='<div class="tools" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Central de comando</h2><span id="gmStatus" class="mut">Entre como Mestre e conecte-se à sala.</span></div><h2>Clima e efeitos da sessão</h2><div id="gmEffects"></div><h2>Tokens da mesa</h2><div id="gmTokenManager"><div class="tools"><label>Nome<input id="gmTokenName" placeholder="Nome do token"></label><label>Controlador<select id="gmTokenOwner"><option value="">Só o Mestre</option></select></label><label>Imagem PNG/JPG<input id="gmTokenFile" type="file" accept="image/png,image/jpeg,image/webp"></label><button id="gmTokenAdd">Criar token</button></div><div id="gmTokenList"></div></div><h2 style="margin-top:18px">Fichas dos agentes</h2><div id="gmPlayers" class="g3"><p class="mut">Aguardando jogadores…</p></div><h2 style="margin-top:18px">Rolagens recentes</h2><ol id="gmRolls" style="padding-left:22px;max-height:360px;overflow:auto"><li class="mut">Nenhuma rolagem registrada.</li></ol>';
 MAIN.append(GMPanel);
 /* ---- Menu lateral, cabeçalho de página ---- */
 const ICO={inicio:'⌂',mesa:'♙',mestre:'♜',ficha:'◬',pericias:'✦',combate:'⚔',habs:'☽',inv:'▦',dados:'⬢',token:'◉',bio:'✎'};
@@ -1332,14 +1334,97 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  if(!jid){jid=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));store('op-room-jid',jid)}
  const say=(msg,bad=false)=>{status.textContent=msg;status.style.color=bad?'#e28b8b':'var(--mut)'};
  const rpc=async(name,args)=>{const {data,error}=await client.rpc(name,args);if(error)throw error;return data};
- window.__opTokenCanMove=id=>!!(room&&authUser&&(isMaster||(id==='p'&&S.tokenOwners&&S.tokenOwners[jid]===true))&&(isMaster||id==='p'));
- window.__opMoveAssignedToken=async(target,x,y)=>{if(!room||!authUser)throw Error('Entre em uma sala');const who=target||jid;
-  if(!isMaster&&(who!==jid||!S.tokenOwners||S.tokenOwners[jid]!==true))throw Error('Token não atribuído pelo Mestre');
-  await rpc('mover_token',{p_codigo:room.code,p_pin:room.pin,p_jid:who,p_x:x,p_y:y});};
+
+ S.tableTokens=Array.isArray(S.tableTokens)?S.tableTokens:[];
+ let tokenPlayers=[],tokenUIKey='';
+ const tokenOptions=owner=>'<option value="">Só o Mestre</option>'+tokenPlayers.map(p=>'<option value="'+esc(p.jid)+'"'+(owner===p.jid?' selected':'')+'>'+esc(p.dados&&p.dados.nome||'Jogador')+'</option>').join('');
+ function updateTokenUI(players){
+  if(players)tokenPlayers=players;
+  if(!isMaster)return;
+  const select=$('gmTokenOwner'),value=select.value;
+  select.innerHTML=tokenOptions(value);
+  const key=JSON.stringify([S.tableTokens,tokenPlayers.map(p=>[p.jid,p.dados&&p.dados.nome])]);
+  if(key===tokenUIKey)return;tokenUIKey=key;
+  $('gmTokenList').innerHTML=S.tableTokens.length?S.tableTokens.map(t=>'<div><b>'+esc(t.name)+'</b><select data-owner-token="'+esc(t.id)+'">'+tokenOptions(t.ownerId||'')+'</select><button data-remove-token="'+esc(t.id)+'">Excluir</button></div>').join(''):'<p class="mut">Nenhum token criado.</p>';
+ }
+ async function saveTokens(){
+  if(!room||!isMaster)throw Error('Conecte-se como Mestre');
+  const payload=JSON.stringify(shared());
+  await rpc('salvar_estado',{p_codigo:room.code,p_pin:room.pin,p_estado:JSON.parse(payload)});
+  lastShared=payload;lastRemote=payload;save();
+ }
+ function tokenImage(file){
+  if(!file)return Promise.resolve(null);
+  return new Promise((resolve,reject)=>{const rd=new FileReader();rd.onerror=()=>reject(Error('Falha ao ler imagem'));
+   rd.onload=()=>{const im=new Image();im.onerror=()=>reject(Error('Imagem inválida'));
+    im.onload=()=>{const cv=document.createElement('canvas');cv.width=cv.height=96;
+     const ctx=cv.getContext('2d'),z=Math.min(im.width,im.height);
+     ctx.drawImage(im,(im.width-z)/2,(im.height-z)/2,z,z,0,0,96,96);
+     resolve(cv.toDataURL('image/jpeg',.7));};im.src=rd.result;};
+   rd.readAsDataURL(file);
+  });
+ }
+ $('gmTokenAdd').onclick=async()=>{
+  if(!isMaster||!room){say('Conecte-se como Mestre.',true);return}
+  const btn=$('gmTokenAdd');btn.disabled=true;
+  try{
+   if(S.tableTokens.length>=50)throw Error('Máximo de 50 tokens');
+   const n=S.tableTokens.length,img=await tokenImage($('gmTokenFile').files[0]);
+   S.tableTokens.push({id:crypto.randomUUID(),name:$('gmTokenName').value.trim().slice(0,55)||'Token',ownerId:$('gmTokenOwner').value||null,img,x:2+n*2%Math.max(3,GC-2),y:2+n%Math.max(3,GR-2),sz:1});
+   await saveTokens();$('gmTokenName').value='';$('gmTokenFile').value='';tokenUIKey='';updateTokenUI();map();
+  }catch(err){say('Erro no token: '+err.message,true)}finally{btn.disabled=false}
+ };
+ $('gmTokenList').addEventListener('change',async e=>{
+  const id=e.target.dataset.ownerToken;if(!id||!isMaster||!room)return;
+  const tok=S.tableTokens.find(t=>t.id===id);if(!tok)return;
+  const old=tok.ownerId;tok.ownerId=e.target.value||null;
+  try{await saveTokens();tokenUIKey='';updateTokenUI()}catch(err){tok.ownerId=old;say(err.message,true)}
+ });
+ $('gmTokenList').addEventListener('click',async e=>{
+  const id=e.target.dataset.removeToken;if(!id||!isMaster||!room)return;
+  const idx=S.tableTokens.findIndex(t=>t.id===id);if(idx<0)return;
+  const deleted=S.tableTokens.splice(idx,1)[0];
+  try{await saveTokens();tokenUIKey='';updateTokenUI();map()}catch(err){S.tableTokens.splice(idx,0,deleted);say(err.message,true)}
+ });
+ function drawRoomTokens(){
+  if(!room)return;
+  const m=$('map');m.querySelectorAll('.tok').forEach(el=>el.remove());
+  for(const t of S.tableTokens){
+   const sz=Math.max(.5,Math.min(3,+t.sz||1)),x=Math.max(0,Math.min(GC-sz,+t.x||0)),y=Math.max(0,Math.min(GR-sz,+t.y||0));
+   const div=document.createElement('div');div.className='tok';div.dataset.roomToken=t.id;div.title=t.name||'Token';
+   div.style.cssText='left:'+(x/GC*100)+'%;top:'+(y/GR*100)+'%;width:'+(sz/GC*100)+'%;--c:#baa8e6;touch-action:none';
+   const img=document.createElement('img');img.draggable=false;img.alt='';img.src=t.img||art('#baa8e6',GL.a('#baa8e6'));div.append(img);m.append(div);
+  }
+  if(!isMaster){m.style.backgroundImage='url("'+(MAPIMG||DEF)+'")';m.style.backgroundSize='100% 100%';}
+ }
+ const oldTableMap=map;
+ map=function(){oldTableMap();if(!window.__opDraggingToken)drawRoomTokens()};
+ $('map').addEventListener('pointerdown',e=>{
+  if(!room)return;
+  const el=e.target.closest('[data-room-token]');
+  if(!el){if(e.target.closest('.tok')){e.stopImmediatePropagation();e.preventDefault()}return}
+  e.stopImmediatePropagation();e.preventDefault();
+  const tok=S.tableTokens.find(t=>t.id===el.dataset.roomToken);
+  if(!tok||(!isMaster&&tok.ownerId!==authUser?.id))return;
+  const before={x:tok.x,y:tok.y},size=+tok.sz||1,rect=$('map').getBoundingClientRect();
+  window.__opDraggingToken=true;el.setPointerCapture(e.pointerId);
+  const mv=ev=>{
+   tok.x=Math.max(0,Math.min(GC-size,Math.round((ev.clientX-rect.left)/rect.width*GC-size/2)));
+   tok.y=Math.max(0,Math.min(GR-size,Math.round((ev.clientY-rect.top)/rect.height*GR-size/2)));
+   el.style.left=tok.x/GC*100+'%';el.style.top=tok.y/GR*100+'%';
+  };
+  const end=async()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',end);window.__opDraggingToken=false;
+   try{await rpc('mover_token_mesa',{p_codigo:room.code,p_pin:room.pin,p_token_id:tok.id,p_x:tok.x,p_y:tok.y});
+    if(isMaster)lastShared=JSON.stringify(shared());
+   }catch(err){tok.x=before.x;tok.y=before.y;drawRoomTokens();say(err.message,true)}
+  };
+  el.addEventListener('pointermove',mv);el.addEventListener('pointerup',end);
+ },true);
  const shared=()=>({
   foes:S.foes||[],maps:(S.maps||[]).map(m=>{const x={...m};delete x.img;delete x.data;return x}),
   cur:S.mp&&S.mp.cur||null,cols:S.mp&&S.mp.cols||24,grid:S.mp&&S.mp.grid||1,
   ini:S.ini||[],dia:S.dia||[],scene:S.scene||null,tokenOwners:S.tokenOwners||{},
+  tableTokens:S.tableTokens||[],
   rain:{on:+!!(S.rain&&S.rain.on),snd:+!!(S.rain&&S.rain.snd)},fx:+!!S.fx,
   fg:S.fg?{on:S.fg.on,rad:S.fg.rad,auto:S.fg.auto}:null
  });
@@ -1360,6 +1445,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   if(v.ini)S.ini=v.ini;if(v.dia)S.dia=v.dia;
   if(v.scene!==undefined&&v.scene!==S.scene&&typeof setScene==='function')setScene(v.scene);
   if(v.tokenOwners&&typeof v.tokenOwners==='object')S.tokenOwners=v.tokenOwners;
+  S.tableTokens=Array.isArray(v.tableTokens)?v.tableTokens:[];tokenUIKey='';
   if(v.rain&&typeof v.rain==='object'){
    const changed=!S.rain||S.rain.on!==v.rain.on||S.rain.snd!==v.rain.snd;
    S.rain={on:+!!v.rain.on,snd:+!!v.rain.snd};if(changed){try{rainSnd();rui()}catch(e){}}
@@ -1368,25 +1454,10 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   if(v.fg&&S.fg)Object.assign(S.fg,v.fg);
   try{map()}catch(e){}try{iui()}catch(e){}try{dui()}catch(e){}
  };
- const applyPlayers=list=>{
-  const m=$('map');if(!m)return;
-  m.querySelectorAll('.tok.peer').forEach(x=>x.remove());
-  (list||[]).forEach(row=>{
-   if(row.jid===jid){const pos=row.dados&&row.dados.pos;if(pos&&!window.__opDraggingToken&&(S.pos.x!==pos.x||S.pos.y!==pos.y)){
-     S.pos={x:+pos.x||0,y:+pos.y||0};const own=m.querySelector('.tok[data-id="p"]');if(own){own.style.left=S.pos.x/GC*100+'%';own.style.top=S.pos.y/GR*100+'%'}
-    }return;}
-   const p=row.dados||{},pos=p.pos||{x:2,y:4};
-   const color=EL[p.elem]||'#888',sz=p.tok&&p.tok.sz||1;
-   const d=document.createElement('div');d.className='tok peer';
-   d.title=p.nome||'Agente';d.dataset.id='peer:'+row.jid;d.dataset.x=+pos.x||0;d.dataset.y=+pos.y||0;d.dataset.sz=sz;
-   d.style.cssText='left:'+(Number(pos.x)||0)/GC*100+'%;top:'+(Number(pos.y)||0)/GR*100+'%;width:'+sz/GC*100+'%;--c:'+color+';pointer-events:'+(isMaster?'auto':'none');
-   const im=document.createElement('img');im.alt='';im.draggable=false;im.src=p.tok&&p.tok.img||art(color,GL.a(color));d.append(im);
-   const hp=document.createElement('i'),bar=document.createElement('b');bar.style.width='100%';hp.append(bar);d.append(hp);m.append(d);
-  });
- };
+ const applyPlayers=list=>{};
  function renderMasterPanel(result){
   if(!isMaster)return;
-  const players=result&&result.jogadores||[];
+  const players=result&&result.jogadores||[];updateTokenUI(players);
   $('gmStatus').textContent=room?'Sala '+room.code.toUpperCase()+' · '+players.length+' ficha(s)':'Conecte-se à sua sala.';
   $('gmPlayers').innerHTML=players.length?players.map(row=>{
    const p=row.dados||{},at=p.at||{},tr=p.tr||{};
@@ -1416,7 +1487,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
    const result=await rpc('ler_mesa',{p_codigo:room.code,p_pin:room.pin,p_jid:jid});
    if(result&&result.estado){
     const j=JSON.stringify(result.estado);
-    if(j!==lastRemote){lastRemote=j;applyShared(result.estado);save()}
+    if(j!==lastRemote){lastRemote=j;applyShared(result.estado);if(isMaster)lastShared=j;save()}
    }
    applyPlayers(result&&result.jogadores||[]);renderMasterPanel(result);
   }catch(e){say('Falha ao sincronizar: '+(e.message||'erro'),true)}
@@ -1434,7 +1505,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
    room={code,pin};role=as;hookRollEvents();
    store('op-room-code',code);store('op-room-pin',pin);store('op-room-role',role);
    codeInput.value=code;pinInput.value=pin;
-   if(result&&result.estado&&role==='player')applyShared(result.estado);
+   if(result&&result.estado)applyShared(result.estado);
    const mine=(result&&result.jogadores||[]).find(x=>x.jid===jid);
    if(mine&&mine.dados){
     Object.assign(S,mine.dados);
@@ -1474,7 +1545,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  $('roomjoin').onclick=()=>connect(codeInput.value,pinInput.value,isMaster?'gm':'player');
  $('roomleave').onclick=()=>{
   room=null;clearInterval(timer);clearInterval(refreshTimer);$('roomcreate').disabled=false;$('roomjoin').disabled=false;$('roomleave').style.display='none';
-  $('map').querySelectorAll('.tok.peer').forEach(x=>x.remove());say('Desconectado · dados locais preservados.');
+  map();say('Desconectado · dados locais preservados.');
  };
  const oldCode=read('op-room-code'),oldPin=read('op-room-pin');
  if(oldCode&&oldPin){
