@@ -261,6 +261,8 @@ main.glt{animation:glt .28s steps(3)}
 @media(prefers-reduced-motion:reduce){body.san-lo main,body.san-cr main,body.pv-lo #vg{animation:none}}
 body:not(.is-master) #mtb,body:not(.is-master) #dtab,body:not(.is-master) #drawer,body:not(.is-master) #mapbar{display:none!important}
 body:not(.is-master) #map{cursor:default!important}
+body:not(.is-master) #gmPanel{display:none!important}
+#gmEffects{display:flex;flex-wrap:wrap;gap:14px;margin:14px 0}#gmEffects>.dsw{flex:1;min-width:210px;max-width:480px}#gmEffects .dsel{flex-wrap:wrap}
 #gmPanel details summary{list-style:disclosure-closed}
 #gmPanel details[open] summary{margin-bottom:10px}
 #gmPanel .kv{grid-template-columns:repeat(auto-fit,minmax(90px,1fr))}
@@ -583,7 +585,7 @@ function prog(){
 const PG=[['inicio','Início'],['mesa','Mesa / Login'],['mestre','Painel do Mestre'],['ficha','Ficha'],['pericias','Perícias'],['combate','Combate'],['habs','Poderes'],['inv','Inventário'],['dados','Dados 3D'],['token','Token'],['bio','Dossiê']];
 $('nav').innerHTML='<b class="brand typ">◬ Ordem Paranormal</b>'+PG.map(([k,n])=>`<button data-pg="${k}">${n}</button>`).join('');
 function go(k){scrollTo(0,0);
- if(!PG.some(p=>p[0]==k))k='inicio';
+ if(!PG.some(p=>p[0]==k))k='inicio';if(k==='mestre'&&window.__opCanControl!==true)k='mesa';if(k==='mestre'&&window.__opCanControl!==true)k='mesa';
  document.querySelectorAll('main section').forEach(s=>s.classList.toggle('on',(s.dataset.p||'').split(' ').includes(k)));
  document.querySelectorAll('#nav button').forEach(b=>b.toggleAttribute('aria-current',b.dataset.pg==k));
  dispatchEvent(new Event('resize'));
@@ -650,9 +652,11 @@ $('mapbar').onclick=e=>{
  map();save();
 };
 $('map').addEventListener('pointerdown',e=>{
- if(window.__opCanControl!==true)return;
  const t=e.target.closest('.tok');if(!t)return;
- const id=t.dataset.id,o=id=='p'?S.pos:S.foes[+id.slice(1)],sx=o.x,sy=o.y,r=$('map').getBoundingClientRect(),sz=id=='p'?(+S.tok.sz||1):1;
+ const id=t.dataset.id;if(!id||!window.__opTokenCanMove||!window.__opTokenCanMove(id))return;
+ const peer=id.startsWith('peer:');const o=peer?{x:+t.dataset.x||0,y:+t.dataset.y||0}:(id=='p'?S.pos:S.foes[+id.slice(1)]);
+ if(!o)return;const sx=o.x,sy=o.y,r=$('map').getBoundingClientRect(),sz=peer?(+t.dataset.sz||1):(id=='p'?(+S.tok.sz||1):1);
+ window.__opDraggingToken=true;
  t.classList.add('d');t.setPointerCapture(e.pointerId);
  const mv=ev=>{
   o.x=Math.max(0,Math.min(16-sz,Math.round((ev.clientX-r.left)/r.width*16-sz/2)));
@@ -661,7 +665,8 @@ $('map').addEventListener('pointerdown',e=>{
   const d=Math.max(Math.abs(o.x-sx),Math.abs(o.y-sy))*1.5;
   $('mv').innerHTML=esc(t.title)+': '+d+' m'+(id=='p'?(d>9?' <span class="warn">(acima do deslocamento de 9 m)</span>':' (deslocamento de 9 m)'):'');
  };
- const up=()=>{t.classList.remove('d');t.removeEventListener('pointermove',mv);t.removeEventListener('pointerup',up);save()};
+ const up=()=>{t.classList.remove('d');t.removeEventListener('pointermove',mv);t.removeEventListener('pointerup',up);window.__opDraggingToken=false;
+  if(peer||id==='p'){window.__opMoveAssignedToken(peer?id.slice(5):null,o.x,o.y).catch(err=>{$('mv').textContent='Movimento rejeitado: '+err.message})}else save();};
  t.addEventListener('pointermove',mv);t.addEventListener('pointerup',up);
 });
 
@@ -809,7 +814,7 @@ document.addEventListener('click',e=>{
 
 /* ---- Painel privado do Mestre ---- */
 const GMPanel=document.createElement('section');GMPanel.className='card wide';GMPanel.id='gmPanel';GMPanel.dataset.p='mestre';
-GMPanel.innerHTML='<div class="tools" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Central de comando</h2><span id="gmStatus" class="mut">Entre como Mestre e conecte-se à sala.</span></div><h2 style="margin-top:18px">Fichas dos agentes</h2><div id="gmPlayers" class="g3"><p class="mut">Aguardando jogadores…</p></div><h2 style="margin-top:18px">Rolagens recentes</h2><ol id="gmRolls" style="padding-left:22px;max-height:360px;overflow:auto"><li class="mut">Nenhuma rolagem registrada.</li></ol>';
+GMPanel.innerHTML='<div class="tools" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Central de comando</h2><span id="gmStatus" class="mut">Entre como Mestre e conecte-se à sala.</span></div><h2>Clima e efeitos da sessão</h2><div id="gmEffects"></div><h2 style="margin-top:18px">Fichas dos agentes</h2><div id="gmPlayers" class="g3"><p class="mut">Aguardando jogadores…</p></div><h2 style="margin-top:18px">Rolagens recentes</h2><ol id="gmRolls" style="padding-left:22px;max-height:360px;overflow:auto"><li class="mut">Nenhuma rolagem registrada.</li></ol>';
 MAIN.append(GMPanel);
 /* ---- Menu lateral, cabeçalho de página ---- */
 const ICO={inicio:'⌂',mesa:'♙',mestre:'♜',ficha:'◬',pericias:'✦',combate:'⚔',habs:'☽',inv:'▦',dados:'⬢',token:'◉',bio:'✎'};
@@ -1108,8 +1113,8 @@ function thunder(){
 const RS=document.createElement('div');RS.className='dsw rsw';RS.innerHTML='<small>Chuva</small><div class="dsel"><button id="rvis">Visual</button><button id="rsnd">Som</button></div>';
 $('nav').insertBefore(RS,$('me').nextSibling);
 function rui(){$('rvis').setAttribute('aria-pressed',!!S.rain.on);$('rsnd').setAttribute('aria-pressed',!!(S.rain.snd&&S.rain.on))}
-$('rvis').onclick=()=>{S.rain.on=S.rain.on?0:1;rainSnd();rui();save()};
-$('rsnd').onclick=()=>{S.rain.snd=S.rain.snd?0:1;if(S.rain.snd)S.rain.on=1;rainSnd();rui();save()};
+$('rvis').onclick=()=>{if(window.__opCanControl!==true)return;S.rain.on=S.rain.on?0:1;rainSnd();rui();save()};
+$('rsnd').onclick=()=>{if(window.__opCanControl!==true)return;S.rain.snd=S.rain.snd?0:1;if(S.rain.snd)S.rain.on=1;rainSnd();rui();save()};
 ['click','keydown','pointerup'].forEach(ev=>addEventListener(ev,()=>rainSnd(),{passive:true}));
 rui();
 /* tema por elemento (Medo = branco) */
@@ -1142,10 +1147,10 @@ const bs0=bgSet;if(typeof bs0=='function')bgSet=c=>bs0(S.scene=='r'?'#c1121f':c)
 function setScene(k){S.scene=k;Object.assign(BGX,SCN[k]);if(typeof bgSet=='function')bgSet(EL[S.elem]);document.querySelectorAll('[data-sc]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.sc==k));save()}
 const AT=document.createElement('div');AT.className='dsw';
 AT.innerHTML='<small>Atmosfera</small><div class="dsel">'+[['n','Normal'],['f','Névoa'],['a','Apagão'],['r','Ritual']].map(([k,n])=>`<button data-sc="${k}" aria-pressed="false">${n}</button>`).join('')+'</div><div class="dsel" style="margin-top:6px"><button id="bpres">Presença</button><button id="bfx" aria-pressed="true">Efeitos</button></div>';
-$('nav').insertBefore(AT,RS.nextSibling);
-document.addEventListener('click',e=>{const b=e.target.closest('[data-sc]');if(b)setScene(b.dataset.sc)});
-$('bpres').onclick=()=>presence();
-$('bfx').setAttribute('aria-pressed',!!S.fx);$('bfx').onclick=()=>{S.fx=S.fx?0:1;$('bfx').setAttribute('aria-pressed',!!S.fx);heart();save()};
+$('gmEffects').append(RS,AT);
+document.addEventListener('click',e=>{const b=e.target.closest('[data-sc]');if(b&&window.__opCanControl===true)setScene(b.dataset.sc)});
+$('bpres').onclick=()=>{if(window.__opCanControl===true)presence()};
+$('bfx').setAttribute('aria-pressed',!!S.fx);$('bfx').onclick=()=>{if(window.__opCanControl!==true)return;S.fx=S.fx?0:1;$('bfx').setAttribute('aria-pressed',!!S.fx);heart();save()};
 setScene(S.scene);
 /* iniciativa (Combate) */
 const IS=document.createElement('section');IS.className='card wide';IS.dataset.p='combate';
@@ -1327,10 +1332,15 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  if(!jid){jid=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));store('op-room-jid',jid)}
  const say=(msg,bad=false)=>{status.textContent=msg;status.style.color=bad?'#e28b8b':'var(--mut)'};
  const rpc=async(name,args)=>{const {data,error}=await client.rpc(name,args);if(error)throw error;return data};
+ window.__opTokenCanMove=id=>!!(room&&authUser&&(isMaster||(id==='p'&&S.tokenOwners&&S.tokenOwners[jid]===true))&&(isMaster||id==='p'));
+ window.__opMoveAssignedToken=async(target,x,y)=>{if(!room||!authUser)throw Error('Entre em uma sala');const who=target||jid;
+  if(!isMaster&&(who!==jid||!S.tokenOwners||S.tokenOwners[jid]!==true))throw Error('Token não atribuído pelo Mestre');
+  await rpc('mover_token',{p_codigo:room.code,p_pin:room.pin,p_jid:who,p_x:x,p_y:y});};
  const shared=()=>({
   foes:S.foes||[],maps:(S.maps||[]).map(m=>{const x={...m};delete x.img;delete x.data;return x}),
   cur:S.mp&&S.mp.cur||null,cols:S.mp&&S.mp.cols||24,grid:S.mp&&S.mp.grid||1,
-  ini:S.ini||[],dia:S.dia||[],scene:S.scene||null,
+  ini:S.ini||[],dia:S.dia||[],scene:S.scene||null,tokenOwners:S.tokenOwners||{},
+  rain:{on:+!!(S.rain&&S.rain.on),snd:+!!(S.rain&&S.rain.snd)},fx:+!!S.fx,
   fg:S.fg?{on:S.fg.on,rad:S.fg.rad,auto:S.fg.auto}:null
  });
  const player=()=>({
@@ -1348,7 +1358,13 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   S.mp=S.mp||{};if(v.cur!==undefined)S.mp.cur=v.cur;
   if(v.cols)S.mp.cols=v.cols;if(v.grid!==undefined)S.mp.grid=v.grid;
   if(v.ini)S.ini=v.ini;if(v.dia)S.dia=v.dia;
-  if(v.scene!==undefined)S.scene=v.scene;
+  if(v.scene!==undefined&&v.scene!==S.scene&&typeof setScene==='function')setScene(v.scene);
+  if(v.tokenOwners&&typeof v.tokenOwners==='object')S.tokenOwners=v.tokenOwners;
+  if(v.rain&&typeof v.rain==='object'){
+   const changed=!S.rain||S.rain.on!==v.rain.on||S.rain.snd!==v.rain.snd;
+   S.rain={on:+!!v.rain.on,snd:+!!v.rain.snd};if(changed){try{rainSnd();rui()}catch(e){}}
+  }
+  if(v.fx!==undefined){S.fx=+!!v.fx;const b=$('bfx');if(b)b.setAttribute('aria-pressed',!!S.fx);try{heart()}catch(e){}}
   if(v.fg&&S.fg)Object.assign(S.fg,v.fg);
   try{map()}catch(e){}try{iui()}catch(e){}try{dui()}catch(e){}
  };
@@ -1356,11 +1372,14 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   const m=$('map');if(!m)return;
   m.querySelectorAll('.tok.peer').forEach(x=>x.remove());
   (list||[]).forEach(row=>{
-   if(row.jid===jid)return;
+   if(row.jid===jid){const pos=row.dados&&row.dados.pos;if(pos&&!window.__opDraggingToken&&(S.pos.x!==pos.x||S.pos.y!==pos.y)){
+     S.pos={x:+pos.x||0,y:+pos.y||0};const own=m.querySelector('.tok[data-id="p"]');if(own){own.style.left=S.pos.x/GC*100+'%';own.style.top=S.pos.y/GR*100+'%'}
+    }return;}
    const p=row.dados||{},pos=p.pos||{x:2,y:4};
    const color=EL[p.elem]||'#888',sz=p.tok&&p.tok.sz||1;
    const d=document.createElement('div');d.className='tok peer';
-   d.title=p.nome||'Agente';d.style.cssText='left:'+(Number(pos.x)||0)/GC*100+'%;top:'+(Number(pos.y)||0)/GR*100+'%;width:'+sz/GC*100+'%;--c:'+color+';pointer-events:none';
+   d.title=p.nome||'Agente';d.dataset.id='peer:'+row.jid;d.dataset.x=+pos.x||0;d.dataset.y=+pos.y||0;d.dataset.sz=sz;
+   d.style.cssText='left:'+(Number(pos.x)||0)/GC*100+'%;top:'+(Number(pos.y)||0)/GR*100+'%;width:'+sz/GC*100+'%;--c:'+color+';pointer-events:'+(isMaster?'auto':'none');
    const im=document.createElement('img');im.alt='';im.draggable=false;im.src=p.tok&&p.tok.img||art(color,GL.a(color));d.append(im);
    const hp=document.createElement('i'),bar=document.createElement('b');bar.style.width='100%';hp.append(bar);d.append(hp);m.append(d);
   });
@@ -1373,11 +1392,17 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
    const p=row.dados||{},at=p.at||{},tr=p.tr||{};
    const list=arr=>Array.isArray(arr)?arr.map(x=>typeof x==='string'?x:(x.n||x.nome||x.name||'')).filter(Boolean).join(', '):'';
    const stat=v=>v&&typeof v==='object'?(v.atual??v.cur??v.value??'—'):v??'—';
-   return '<details class="card" style="padding:12px"><summary style="cursor:pointer"><b>'+esc(p.nome||'Agente sem nome')+'</b><span class="mut"> · '+esc(p.classe||'Classe não definida')+' · NEX '+esc(p.nex??'—')+'%</span></summary><div class="kv"><div><span>PV</span><b>'+esc(stat(p.pv))+'</b></div><div><span>Sanidade</span><b>'+esc(stat(p.san))+'</b></div><div><span>PE</span><b>'+esc(stat(p.pe))+'</b></div><div><span>Origem</span><b style="font-size:14px">'+esc(p.origem||'—')+'</b></div></div><p><b>Atributos:</b> '+esc(Object.entries(at).map(([k,v])=>k+': '+v).join(' · ')||'—')+'</p><p><b>Trilha:</b> '+esc(p.trilha||'—')+' · <b>Elemento:</b> '+esc(p.elem||'—')+'</p><p><b>Perícias treinadas:</b> '+esc(Object.entries(tr).filter(([k,v])=>+v>0).map(([k,v])=>k+' +'+(+v*5)).join(', ')||'—')+'</p><p><b>Ataques:</b> '+esc(list(p.atk)||'—')+'</p><p><b>Habilidades:</b> '+esc(list(p.hab)||'—')+'</p><p><b>Inventário:</b> '+esc(list(p.inv)||'—')+'</p><p><b>Anotações:</b> '+esc(p.notes||'—')+'</p></details>';
+   const enabled=!!(S.tokenOwners&&S.tokenOwners[row.jid]);
+   return '<details class="card" style="padding:12px"><summary style="cursor:pointer"><b>'+esc(p.nome||'Agente sem nome')+'</b><span class="mut"> · '+esc(p.classe||'Classe não definida')+' · NEX '+esc(p.nex??'—')+'%</span></summary><div class="kv"><div><span>PV</span><b>'+esc(stat(p.pv))+'</b></div><div><span>Sanidade</span><b>'+esc(stat(p.san))+'</b></div><div><span>PE</span><b>'+esc(stat(p.pe))+'</b></div><div><span>Origem</span><b style="font-size:14px">'+esc(p.origem||'—')+'</b></div></div><p><b>Atributos:</b> '+esc(Object.entries(at).map(([k,v])=>k+': '+v).join(' · ')||'—')+'</p><p><b>Trilha:</b> '+esc(p.trilha||'—')+' · <b>Elemento:</b> '+esc(p.elem||'—')+'</p><p><b>Perícias treinadas:</b> '+esc(Object.entries(tr).filter(([k,v])=>+v>0).map(([k,v])=>k+' +'+(+v*5)).join(', ')||'—')+'</p><p><b>Ataques:</b> '+esc(list(p.atk)||'—')+'</p><p><b>Habilidades:</b> '+esc(list(p.hab)||'—')+'</p><p><b>Inventário:</b> '+esc(list(p.inv)||'—')+'</p><p><b>Anotações:</b> '+esc(p.notes||'—')+'</p><button class="owner-button" data-owner="'+esc(row.jid)+'" aria-pressed="'+enabled+'">'+(enabled?'✓ Movimento autorizado':'Autorizar movimento do token')+'</button></details>';
   }).join(''):'<p class="mut">Nenhum jogador enviou a ficha ainda. Peça para os jogadores entrarem na sala.</p>';
   const rolls=(result&&result.eventos||[]).filter(e=>e.tipo==='roll');
   $('gmRolls').innerHTML=rolls.length?rolls.map(e=>'<li style="margin:0 0 8px"><b>'+esc(e.dados&&e.dados.nome||'Agente')+'</b>: '+esc(e.dados&&e.dados.det||'Rolagem')+' <span class="mut">= '+esc(e.dados&&e.dados.t||'—')+' · '+(e.criado?new Date(e.criado).toLocaleString('pt-BR'):'')+'</span></li>').join(''):'<li class="mut">Nenhuma rolagem registrada nesta sessão.</li>';
  }
+ $('gmPlayers').addEventListener('click',async e=>{const btn=e.target.closest('[data-owner]');if(!btn||!isMaster||!room)return;
+  const owner=btn.dataset.owner;S.tokenOwners=S.tokenOwners||{};S.tokenOwners[owner]=!S.tokenOwners[owner];btn.disabled=true;
+  try{const snapshot=JSON.stringify(shared());await rpc('salvar_estado',{p_codigo:room.code,p_pin:room.pin,p_estado:JSON.parse(snapshot)});lastShared=snapshot;lastRemote=snapshot;await refresh()}
+  catch(err){S.tokenOwners[owner]=!S.tokenOwners[owner];say('Permissão não salva: '+err.message,true)}finally{btn.disabled=false}
+ });
  let rollHooked=false;
  function hookRollEvents(){
   if(rollHooked||typeof logRoll!=='function')return;
