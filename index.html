@@ -263,6 +263,22 @@ body:not(.is-master) #mtb,body:not(.is-master) #dtab,body:not(.is-master) #drawe
 body:not(.is-master) #map{cursor:default!important}
 body:not(.is-master) #mapcard #sel button{display:none!important}
 #gmTokenManager{margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:8px}#gmTokenManager .tools{display:flex;flex-wrap:wrap;gap:10px}#gmTokenManager label{flex:1;min-width:130px}#gmTokenList>div{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}#gmTokenList b{min-width:130px;flex:1}
+#drawer #gmTokenManager{margin:8px 0;padding:10px;background:#0002}
+#drawer #gmTokenManager .tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#drawer #gmTokenManager label{min-width:0}
+#drawer #gmTokenManager label:nth-child(3){grid-column:1/-1}
+#drawer #gmTokenManager input,#drawer #gmTokenManager select{max-width:100%;width:100%}
+#drawer #gmTokenManager #gmTokenAdd{grid-column:1/-1}
+#drawer #gmTokenList>div{display:grid;grid-template-columns:1fr auto;gap:6px;border-top:1px solid var(--line);padding:10px 0}
+#drawer #gmTokenList .room-token-name{grid-column:1/-1}
+#drawer #gmTokenList .size-box{grid-column:1/-1;display:flex;gap:8px;align-items:center}
+#drawer #gmTokenList .size-box input{flex:1;min-width:0}
+#drawer #gmTokenList .size-box output{min-width:42px;text-align:right}
+#map .tok[data-room-token] img{border:none!important;border-radius:0!important;object-fit:contain!important;box-shadow:none!important;background:transparent!important;filter:drop-shadow(0 3px 3px #0009)}
+#map .tok[data-room-token].d img{transform:none!important;box-shadow:none!important}
+#coin>div{border:none;border-radius:0;overflow:visible;box-shadow:none}
+#coin img{object-fit:contain;object-position:center}
+body:not(.is-master) #gmTokenManager{display:none!important}
 body:not(.is-master) #gmPanel{display:none!important}
 #gmEffects{display:flex;flex-wrap:wrap;gap:14px;margin:14px 0}#gmEffects>.dsw{flex:1;min-width:210px;max-width:480px}#gmEffects .dsel{flex-wrap:wrap}
 #gmPanel details summary{list-style:disclosure-closed}
@@ -816,7 +832,7 @@ document.addEventListener('click',e=>{
 
 /* ---- Painel privado do Mestre ---- */
 const GMPanel=document.createElement('section');GMPanel.className='card wide';GMPanel.id='gmPanel';GMPanel.dataset.p='mestre';
-GMPanel.innerHTML='<div class="tools" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Central de comando</h2><span id="gmStatus" class="mut">Entre como Mestre e conecte-se à sala.</span></div><h2>Clima e efeitos da sessão</h2><div id="gmEffects"></div><h2>Tokens da mesa</h2><div id="gmTokenManager"><div class="tools"><label>Nome<input id="gmTokenName" placeholder="Nome do token"></label><label>Controlador<select id="gmTokenOwner"><option value="">Só o Mestre</option></select></label><label>Imagem PNG/JPG<input id="gmTokenFile" type="file" accept="image/png,image/jpeg,image/webp"></label><button id="gmTokenAdd">Criar token</button></div><div id="gmTokenList"></div></div><h2 style="margin-top:18px">Fichas dos agentes</h2><div id="gmPlayers" class="g3"><p class="mut">Aguardando jogadores…</p></div><h2 style="margin-top:18px">Rolagens recentes</h2><ol id="gmRolls" style="padding-left:22px;max-height:360px;overflow:auto"><li class="mut">Nenhuma rolagem registrada.</li></ol>';
+GMPanel.innerHTML='<div class="tools" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Central de comando</h2><span id="gmStatus" class="mut">Entre como Mestre e conecte-se à sala.</span></div><h2>Clima e efeitos da sessão</h2><div id="gmEffects"></div><div id="gmTokenManager"><h2>Tokens da mesa</h2><div class="tools"><label>Nome<input id="gmTokenName" placeholder="Nome do token"></label><label>Controlador<select id="gmTokenOwner"><option value="">Só o Mestre</option></select></label><label>Imagem PNG/JPG<input id="gmTokenFile" type="file" accept="image/png,image/jpeg,image/webp"></label><button id="gmTokenAdd">Criar token</button></div><div id="gmTokenList"></div></div><h2 style="margin-top:18px">Fichas dos agentes</h2><div id="gmPlayers" class="g3"><p class="mut">Aguardando jogadores…</p></div><h2 style="margin-top:18px">Rolagens recentes</h2><ol id="gmRolls" style="padding-left:22px;max-height:360px;overflow:auto"><li class="mut">Nenhuma rolagem registrada.</li></ol>';
 MAIN.append(GMPanel);
 /* ---- Menu lateral, cabeçalho de página ---- */
 const ICO={inicio:'⌂',mesa:'♙',mestre:'♜',ficha:'◬',pericias:'✦',combate:'⚔',habs:'☽',inv:'▦',dados:'⬢',token:'◉',bio:'✎'};
@@ -1030,6 +1046,7 @@ $('mapbox').addEventListener('pointerdown',e=>{
 },true);
 /* aba de detalhes */
 const dr=$('drawer');
+/* Os controles da mesa são visíveis apenas ao Mestre. */
 [...document.querySelectorAll('section[data-p="token"]')].filter(s=>s.id!='mapcard').forEach(s=>{s.removeAttribute('data-p');s.classList.remove('wide');dr.append(s)});
 const FS=document.createElement('section');FS.className='card';
 FS.innerHTML='<h2>Névoa de guerra</h2><div class="tools"><button id="fcov">Cobrir tudo</button><button id="frev">Revelar tudo</button><button id="fauto"></button></div><label style="margin-top:8px">Raio de visão do agente (quadrados)<input id="frad" type="range" min="1" max="10"></label><p class="mut">Use Revelar e Cobrir na barra do mapa para pintar. Espiar mostra o que está sob a névoa. Inimigos na névoa ficam escondidos.</p>';
@@ -1340,6 +1357,13 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
  const rpc=async(name,args)=>{const {data,error}=await client.rpc(name,args);if(error)throw error;return data};
 
  S.tableTokens=Array.isArray(S.tableTokens)?S.tableTokens:[];
+ const roomTokenControls=$('gmTokenManager');
+ if(roomTokenControls){
+  const holder=document.createElement('section');holder.className='card';holder.id='roomTokenDrawer';
+  holder.append(roomTokenControls);const drawer=$('drawer');drawer.insertBefore(holder,drawer.querySelector('#dh').nextSibling);
+ }
+ const newTokenSize=document.createElement('label');newTokenSize.innerHTML='Tamanho inicial (quadrados)<select id="gmTokenSize"><option value="0.5">Muito pequeno (0,5)</option><option value="1" selected>Normal (1)</option><option value="1.5">Grande (1,5)</option><option value="2">Muito grande (2)</option><option value="3">Enorme (3)</option><option value="4">Gigante (4)</option><option value="5">Colossal (5)</option></select>';
+ $('gmTokenFile').closest('label').after(newTokenSize);
  let tokenPlayers=[],tokenUIKey='';
  const tokenOptions=owner=>'<option value="">Só o Mestre</option>'+tokenPlayers.map(p=>'<option value="'+esc(p.jid)+'"'+(owner===p.jid?' selected':'')+'>'+esc(p.dados&&p.dados.nome||'Jogador')+'</option>').join('');
  function updateTokenUI(players){
@@ -1349,7 +1373,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   select.innerHTML=tokenOptions(value);
   const key=JSON.stringify([S.tableTokens,tokenPlayers.map(p=>[p.jid,p.dados&&p.dados.nome])]);
   if(key===tokenUIKey)return;tokenUIKey=key;
-  $('gmTokenList').innerHTML=S.tableTokens.length?S.tableTokens.map(t=>'<div><b>'+esc(t.name)+'</b><select data-owner-token="'+esc(t.id)+'">'+tokenOptions(t.ownerId||'')+'</select><button data-remove-token="'+esc(t.id)+'">Excluir</button></div>').join(''):'<p class="mut">Nenhum token criado.</p>';
+  $('gmTokenList').innerHTML=S.tableTokens.length?S.tableTokens.map(t=>'<div><b class="room-token-name">'+esc(t.name)+'</b><select aria-label="Quem controla '+esc(t.name)+'" data-owner-token="'+esc(t.id)+'">'+tokenOptions(t.ownerId||'')+'</select><button data-remove-token="'+esc(t.id)+'">Excluir</button><label class="size-box">Tamanho <input type="range" min="0.5" max="5" step="0.25" value="'+Math.max(.5,Math.min(5,+t.sz||1))+'" data-size-token="'+esc(t.id)+'"><output>'+Math.max(.5,Math.min(5,+t.sz||1))+'×</output></label></div>').join(''):'<p class="mut">Nenhum token criado.</p>';
  }
  async function saveTokens(){
   if(!room||!isMaster)throw Error('Conecte-se como Mestre');
@@ -1363,8 +1387,9 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
    rd.onload=()=>{const im=new Image();im.onerror=()=>reject(Error('Imagem inválida'));
     im.onload=()=>{const cv=document.createElement('canvas');cv.width=cv.height=96;
      const ctx=cv.getContext('2d'),z=Math.min(im.width,im.height);
-     ctx.drawImage(im,(im.width-z)/2,(im.height-z)/2,z,z,0,0,96,96);
-     resolve(cv.toDataURL('image/jpeg',.7));};im.src=rd.result;};
+     const scale=Math.min(96/im.width,96/im.height);const w=im.width*scale,h=im.height*scale;
+     ctx.clearRect(0,0,96,96);ctx.drawImage(im,(96-w)/2,(96-h)/2,w,h);
+     resolve(cv.toDataURL('image/png'));};im.src=rd.result;};
    rd.readAsDataURL(file);
   });
  }
@@ -1374,7 +1399,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   try{
    if(S.tableTokens.length>=50)throw Error('Máximo de 50 tokens');
    const n=S.tableTokens.length,img=await tokenImage($('gmTokenFile').files[0]);
-   S.tableTokens.push({id:crypto.randomUUID(),name:$('gmTokenName').value.trim().slice(0,55)||'Token',ownerId:$('gmTokenOwner').value||null,img,x:2+n*2%Math.max(3,GC-2),y:2+n%Math.max(3,GR-2),sz:1});
+   S.tableTokens.push({id:crypto.randomUUID(),name:$('gmTokenName').value.trim().slice(0,55)||'Token',ownerId:$('gmTokenOwner').value||null,img,x:2+n*2%Math.max(3,GC-2),y:2+n%Math.max(3,GR-2),sz:+$('gmTokenSize').value||1});
    await saveTokens();$('gmTokenName').value='';$('gmTokenFile').value='';tokenUIKey='';updateTokenUI();map();
   }catch(err){say('Erro no token: '+err.message,true)}finally{btn.disabled=false}
  };
@@ -1383,6 +1408,17 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   const tok=S.tableTokens.find(t=>t.id===id);if(!tok)return;
   const old=tok.ownerId;tok.ownerId=e.target.value||null;
   try{await saveTokens();tokenUIKey='';updateTokenUI()}catch(err){tok.ownerId=old;say(err.message,true)}
+ });
+ $('gmTokenList').addEventListener('input',e=>{
+  const range=e.target.closest('[data-size-token]');if(!range||!isMaster||!room)return;
+  const tok=S.tableTokens.find(t=>t.id===range.dataset.sizeToken);if(!tok)return;
+  tok.sz=Math.max(.5,Math.min(5,+range.value||1));range.parentElement.querySelector('output').textContent=tok.sz+'×';map();
+ });
+ $('gmTokenList').addEventListener('change',async e=>{
+  const range=e.target.closest('[data-size-token]');if(!range||!isMaster||!room)return;
+  const tok=S.tableTokens.find(t=>t.id===range.dataset.sizeToken);if(!tok)return;
+  try{await saveTokens();tokenUIKey='';updateTokenUI();map();}
+  catch(err){say('Erro ao salvar tamanho: '+err.message,true)}
  });
  $('gmTokenList').addEventListener('click',async e=>{
   const id=e.target.dataset.removeToken;if(!id||!isMaster||!room)return;
@@ -1394,7 +1430,7 @@ init3d();['atk','hab','inv','rit'].forEach(list);bind();conds();all();go(locatio
   if(!room)return;
   const m=$('map');m.querySelectorAll('.tok').forEach(el=>el.remove());
   for(const t of S.tableTokens){
-   const sz=Math.max(.5,Math.min(3,+t.sz||1)),x=Math.max(0,Math.min(GC-sz,+t.x||0)),y=Math.max(0,Math.min(GR-sz,+t.y||0));
+   const sz=Math.max(.5,Math.min(5,+t.sz||1)),x=Math.max(0,Math.min(GC-sz,+t.x||0)),y=Math.max(0,Math.min(GR-sz,+t.y||0));
    const div=document.createElement('div');div.className='tok';div.dataset.roomToken=t.id;div.title=t.name||'Token';
    div.style.cssText='left:'+(x/GC*100)+'%;top:'+(y/GR*100)+'%;width:'+(sz/GC*100)+'%;--c:#baa8e6;touch-action:none';
    const img=document.createElement('img');img.draggable=false;img.alt='';img.src=t.img||art('#baa8e6',GL.a('#baa8e6'));div.append(img);m.append(div);
